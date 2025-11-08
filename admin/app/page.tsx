@@ -14,6 +14,7 @@ const API_BASE = "/api"
 interface CoinRequest {
   _id: string
   name: string
+  account_number?: string
   userUid: string
   amount: number
 }
@@ -21,6 +22,7 @@ interface CoinRequest {
 interface MoneyRequest {
   _id: string
   name: string
+  account_number?: string
   userUid: string
   amount: number
 }
@@ -193,8 +195,11 @@ export default function AdminDashboard() {
                           <div className="mb-2">
                             <p className="text-lg font-semibold text-foreground">{request.name}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-mono text-xs text-muted-foreground">{request.userUid}</p>
+                            {request.account_number && (
+                              <p className="font-mono text-xs text-muted-foreground">계좌: {request.account_number}</p>
+                            )}
                             <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400">
                               코인
                             </Badge>
@@ -243,8 +248,11 @@ export default function AdminDashboard() {
                           <div className="mb-2">
                             <p className="text-lg font-semibold text-foreground">{request.name}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-mono text-xs text-muted-foreground">{request.userUid}</p>
+                            {request.account_number && (
+                              <p className="font-mono text-xs text-muted-foreground">계좌: {request.account_number}</p>
+                            )}
                             <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">
                               머니
                             </Badge>

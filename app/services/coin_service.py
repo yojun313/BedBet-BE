@@ -24,6 +24,7 @@ def requestCoin(coinRequestDto: CoinRequestDto, userUid: str):
     
     coin_col.insert_one({
         "name": existing_user['name'],
+        "account_number": existing_user['account_number'],
         "userUid": userUid,
         "amount": amount,
     })
