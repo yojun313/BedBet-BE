@@ -126,3 +126,9 @@ def signInToken(signInTokenDto: SignInTokenDto):
 def create_access_token(data: dict):
     encoded_jwt = jwt.encode(data, os.getenv("JWT_SECRET"), algorithm=os.getenv("JWT_ALGORITHM"))
     return encoded_jwt
+
+def delete_user(userUid: str):
+    result = user_col.delete_one({"userUid": userUid})
+    if result.deleted_count == 0:
+        return JSONResponse(status_code=404, content={"message": "User not found"})
+    return JSONResponse(status_code=200, content={"message": "User deleted successfully"})
