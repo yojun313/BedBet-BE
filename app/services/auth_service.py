@@ -66,7 +66,8 @@ def signUp(signUpDto: SignUpDto):
     if not existing_user:
         return JSONResponse(status_code=404, content={"message": "Email not verified"})
     
-    userUid = clean_doc(existing_user).get('userUid')
+    existing_user = clean_doc(existing_user)
+    userUid = existing_user.get('userUid')
     
     name = signUpDict['name']
     password = signUpDict['password']
