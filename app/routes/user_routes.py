@@ -4,7 +4,7 @@ from app.services.user_service import deleteUser, getUserInfo
 
 router = APIRouter()
 
-@router.get('/')
+@router.get('/info')
 def get_user_info(userUid: str = Depends(verify_token)):
     return getUserInfo(userUid)
 
