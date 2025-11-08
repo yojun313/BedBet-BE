@@ -1,4 +1,3 @@
-
 import jwt
 import os
 from jwt.exceptions import PyJWTError

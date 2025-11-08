@@ -12,6 +12,6 @@ except Exception:
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
-api_router.include_router(team_router, prefix="/team", tags=["team"], dependencies=[Depends(verify_token)])
+api_router.include_router(team_router, tags=["team"], dependencies=[Depends(verify_token)])
 api_router.include_router(coin_router, prefix="/coin", tags=["coin"], dependencies=[Depends(verify_token)])
 api_router.include_router(money_router, prefix="/money", tags=["money"], dependencies=[Depends(verify_token)])
