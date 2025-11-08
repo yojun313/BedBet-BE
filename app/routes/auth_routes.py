@@ -16,7 +16,6 @@ def verify_code(verifyEmailDto: VerifyEmailDto):
 def sign_up(signUpDto: SignUpDto):
     return signUp(signUpDto)
 
-
 @router.get('/signin')
 def sign_in(signInDto: SignInDto):
     return signIn(signInDto)

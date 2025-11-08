@@ -1,4 +1,4 @@
-from app.models.auth_model import VerifyRequestDto, VerifyEmailDto, SignUpDto
+from app.models.auth_model import VerifyRequestDto, VerifyEmailDto, SignUpDto, SignInDto
 from app.db import auth_col, user_col, clean_doc
 from app.utils.mail import sendEmail
 import random
@@ -93,7 +93,7 @@ def signUp(signUpDto: SignUpDto):
     access_token = create_access_token({"email": email})
     return JSONResponse(status_code=200, content={"message": "User signed up successfully", "access_token": access_token})
 
-def signIn(signInDto):
+def signIn(signInDto: SignInDto):
     signInDict = signInDto.model_dump()
     email = signInDict['email']
     password = signInDict['password']
