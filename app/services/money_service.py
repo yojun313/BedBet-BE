@@ -1,6 +1,7 @@
 from app.models.money_model import MoneyRequestDto
 from fastapi.responses import JSONResponse
 from app.db import money_col, user_col
+from app.db import clean_doc
 
 def getMoneyPendingRequests():
     pending_requests = list(money_col.find())
@@ -16,7 +17,12 @@ def requestMoney(moneyRequestDto: MoneyRequestDto, userUid: str):
     if existing_record:
         return JSONResponse(status_code=400, content={"message": "Money request already exists"})
     
+    
     user = user_col.find_one({"userUid": userUid})
+    if not user:
+        return JSONResponse(status_code=404, content={"message": "User not found"})
+    
+    user = clean_doc(user)
     user_coin = user.get("coin", 0)
     required_coins = int(amount / 110)
     
@@ -24,6 +30,7 @@ def requestMoney(moneyRequestDto: MoneyRequestDto, userUid: str):
         return JSONResponse(status_code=400, content={"message": "Not enough coins to request money"})
     
     money_col.insert_one({
+        "name": user['name'],
         "userUid": userUid,
         "amount": amount,
     })

@@ -1,6 +1,7 @@
 from app.models.coin_model import CoinRequestDto
 from fastapi.responses import JSONResponse
 from app.db import coin_col, user_col
+from app.db import clean_doc
 
 def getCoinPendingRequests():
     pending_requests = list(coin_col.find())
@@ -16,7 +17,13 @@ def requestCoin(coinRequestDto: CoinRequestDto, userUid: str):
     if existing_record:
         return JSONResponse(status_code=400, content={"message": "Coin request already exists"})
     
+    existing_user = user_col.find_one({"userUid": userUid})
+    if not existing_user:
+        return JSONResponse(status_code=404, content={"message": "User not found"})
+    existing_user = clean_doc(existing_user)
+    
     coin_col.insert_one({
+        "name": existing_user['name'],
         "userUid": userUid,
         "amount": amount,
     })
