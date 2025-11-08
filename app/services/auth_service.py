@@ -1,5 +1,5 @@
 from app.models.auth_model import VerifyRequestDto, VerifyEmailDto, SignUpDto
-from app.db import auth_col, user_col
+from app.db import auth_col, user_col, clean_doc
 from app.utils.mail import sendEmail
 import random
 from fastapi.responses import JSONResponse
@@ -7,7 +7,6 @@ import bcrypt
 import jwt
 import os
 import uuid
-from app.utils import clean_doc
 
 
 def verifyRequest(verifyEmailDto: VerifyRequestDto):
