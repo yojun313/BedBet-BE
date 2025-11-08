@@ -1,4 +1,4 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 from dotenv import load_dotenv
 import os
 

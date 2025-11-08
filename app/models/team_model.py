@@ -13,7 +13,7 @@ class TeamDto(BaseModel):
 
 class TeamMemberDto(BaseModel):
     team_id: str
-    user_id: str
+    userUid: str
     role: Literal["owner", "member"]
     joined_at: datetime
 

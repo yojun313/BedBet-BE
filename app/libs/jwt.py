@@ -1,7 +1,7 @@
 
 import jwt
 import os
-from jwt import PyJWTError
+from jwt.exceptions import PyJWTError
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
