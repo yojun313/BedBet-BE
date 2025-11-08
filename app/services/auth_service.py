@@ -49,6 +49,7 @@ def verifyCode(verifyEmailDto: VerifyEmailDto):
                 "account_number": "",
                 "bank": "",
                 "coin": 0,
+                "teamUid": "",
             }
         },
         upsert=True
@@ -85,6 +86,7 @@ def signUp(signUpDto: SignUpDto):
                 "account_number": account_number,
                 "bank": bank,
                 "coin": 0,
+                "teamUid": "",
             }
         }
     )

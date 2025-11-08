@@ -1,32 +1,27 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from typing import Optional
+from fastapi import APIRouter, Depends
 from app.libs.jwt import verify_token
-from app.models.team_model import (
-    TeamCreateDto, TeamDto, TeamMemberDto, MembersResponse, JoinResponse, TeamWithMembersDto
-)
-from app.services.team_service import (
-    create_team, join_team, list_members, join_team_with_members, get_team_with_members
-)
+from app.models.team_model import TeamCreateDto, TeamJoinDto, TeamExitDto
+from app.services.team_service import createTeam, joinTeam, exitTeam, getTeamInfo, getTeams
+
 router = APIRouter()
 
-@router.post("/team", response_model=TeamDto, status_code=201)
-async def create_team_endpoint(payload: TeamCreateDto, userUid: str = Depends(verify_token)):
-    return create_team(userUid, payload)
+@router.get("/teams")
+async def get_teams():
+    return getTeams()
 
+@router.post("/team/create")
+async def creaet_team(teamCreateDto: TeamCreateDto, userUid: str = Depends(verify_token)):
+    return createTeam(userUid, teamCreateDto)
 
-@router.post("/team/{team_id}/join", response_model=JoinResponse)
-async def join_team_endpoint(team_id: str, userUid: str = Depends(verify_token)):
-    return join_team_with_members(team_id, userUid)
+@router.post("/team/join")
+async def join_team(teamJoinDto: TeamJoinDto, userUid: str = Depends(verify_token)):
+    return joinTeam(teamJoinDto, userUid)
 
-@router.get("/team/{team_id}", response_model=TeamWithMembersDto)
-async def get_team_endpoint(team_id: str, userUid: str = Depends(verify_token)):
-    return get_team_with_members(team_id)
+@router.post("/team/exit")
+async def exit_team(teamExitDto: TeamExitDto, userUid: str = Depends(verify_token)):
+    return exitTeam(teamExitDto, userUid)
 
-@router.get("/team/{team_id}/members", response_model=MembersResponse)
-async def list_members_endpoint(
-    team_id: str,
-    limit: int = Query(20, ge=1, le=200),
-    cursor: Optional[str] = None,
-    userUid: str = Depends(verify_token),
-):
-    return list_members(team_id, limit, cursor)
+@router.get("/team/info/{teamUid}")
+async def get_team_info(teamUid: str):
+    return getTeamInfo(teamUid)
+

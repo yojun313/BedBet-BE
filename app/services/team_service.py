@@ -1,130 +1,160 @@
 from datetime import datetime, timezone
-from typing import Optional, List
-from bson import ObjectId
 from fastapi import HTTPException
-from app.db import team_col, team_members_col
-from app.models.team_model import (
-    TeamCreateDto, TeamDto, TeamMemberDto, MembersResponse, TeamWithMembersDto, JoinResponse
-)
-from pymongo import ReturnDocument
+from fastapi.responses import JSONResponse
+from app.db import team_col, user_col, clean_doc
+from app.models.team_model import TeamCreateDto, TeamJoinDto, TeamExitDto
+import uuid
+from zoneinfo import ZoneInfo
+from fastapi.encoders import jsonable_encoder
 
 
-def _to_oid(id_str: str) -> ObjectId:
-    try:
-        return ObjectId(id_str)
-    except Exception:
-        raise HTTPException(status_code=400, detail={"code": "BAD_TEAM_ID", "message": "team_id 형식이 올바르지 않습니다."})
+def _to_kst(dt: datetime) -> datetime:
+    """입력 datetime을 KST(Asia/Seoul)로 변환. naive이면 KST로 간주."""
+    kst = ZoneInfo("Asia/Seoul")
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=kst)
+    return dt.astimezone(kst)
 
+def _is_kst_30min_aligned(dt: datetime) -> bool:
+    kst_dt = _to_kst(dt)
+    return (kst_dt.minute % 30 == 0) and kst_dt.second == 0 and kst_dt.microsecond == 0
+    
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
-def create_team(owner_id: str, team: TeamCreateDto) -> TeamDto:
-    doc = {
-        "name": team.name,
-        "owner_id": owner_id,
-        "challenge_start_at": team.challenge_start_at,
-        "challenge_end_at": team.challenge_end_at,
+def getTeams():
+    teams = team_col.find()
+    teams = [clean_doc(team) for team in teams]
+    return {"status_code": 200, "message": "Get teams success", "teams": teams}
+
+def createTeam(ownerUid: str, teamCreateDto: TeamCreateDto):
+    team = teamCreateDto.model_dump()
+    
+    existing_room = team_col.find_one({"ownerUid": ownerUid})
+    if existing_room:
+        raise HTTPException(status_code=409, detail={"message": "This user already owns a team."})
+    
+    existing_name = team_col.find_one({"name": team.get("name")})
+    if existing_name:
+        raise HTTPException(status_code=409, detail={"message": "Team name already exists."})
+    
+    start_at = team.get("challenge_start_at")
+    end_at = team.get("challenge_end_at")
+    if not (isinstance(start_at, datetime) and isinstance(end_at, datetime)):
+        raise HTTPException(status_code=400, detail={"message": "challenge_start_at and challenge_end_at must be datetime."})
+
+    if not _is_kst_30min_aligned(start_at) or not _is_kst_30min_aligned(end_at):
+        raise HTTPException(status_code=400, detail={"message": "Start and end must be aligned to 30-minute boundaries in KST."})
+
+    if _to_kst(start_at) >= _to_kst(end_at):
+        raise HTTPException(status_code=400, detail={"message": "challenge_start_at must be before challenge_end_at."})
+    
+    user = user_col.find_one({"userUid": ownerUid})
+    if not user:
+        raise HTTPException(status_code=404, detail={"message": "User not found."})
+    
+    if team.get("coin") > user.get("coin", 0):
+        raise HTTPException(status_code=400, detail={"message": "Insufficient coins to create the team."})
+    
+    teamUid = str(uuid.uuid4())
+    team_col.insert_one({
+        "name": team.get("name"),
+        "teamUid": teamUid,
+        "ownerUid": ownerUid,
+        "challenge_start_at": start_at,
+        "challenge_end_at": end_at,
         "created_at": now_utc(),
-    }
-    try:
-        res = team_col.insert_one(doc)
-    except Exception as e:
-        if "E11000" in str(e):
-            raise HTTPException(status_code=409, detail={"code":"TEAM_NAME_CONFLICT","message":"같은 이름의 팀이 이미 존재합니다!"})
-        raise
-    team_id = res.inserted_id
-  
-    team_members_col.update_one(
-        {"team_id": team_id, "userUid": owner_id},
-        {"$setOnInsert": {"role": "owner", "joined_at": now_utc()}},
-        upsert=True,
+        "teammates": [{"userUid": ownerUid, "coin": team.get("coin")}],
+        "bet_coins": team.get("coin"),
+    })
+    
+    user_col.update_one(
+        {"userUid": ownerUid},
+        {"$set": {"teamUid": teamUid}}
     )
-    return TeamDto(
-        id=str(team_id),
-        name=doc.get("name"),
-        owner_id=owner_id,
-        challenge_start_at=doc["challenge_start_at"],
-        challenge_end_at=doc["challenge_end_at"],
-        created_at=doc["created_at"],
-    )
-
-def join_team(team_id: str, userUid: str) -> TeamMemberDto:
-    tid = _to_oid(team_id)  
-    team = team_col.find_one({"_id": tid})
+    return JSONResponse(status_code=201, content={"message": "Team created successfully", "teamUid": teamUid})
+    
+def joinTeam(teamJoinDto: TeamJoinDto, userUid: str):
+    teamJoinDict = teamJoinDto.model_dump()
+    
+    teamUid = teamJoinDict["teamUid"]
+    coin = teamJoinDict["coin"]
+    
+    team = team_col.find_one({"teamUid": teamUid})
     if not team:
-        raise HTTPException(status_code=404, detail={"code":"TEAM_NOT_FOUND","message":"팀이 존재하지 않습니다."})
+        raise HTTPException(status_code=404, detail={"message": "Team not found."})
 
-
-    doc = team_members_col.find_one_and_update(
-        {"team_id": tid, "userUid": userUid},
-        {"$setOnInsert": {"role": "member", "joined_at": now_utc()}},
-        upsert=True,
-        return_document=ReturnDocument.AFTER,
+    if any(member.get("userUid") == userUid for member in team.get("teammates", [])):
+         raise HTTPException(status_code=409, detail={"message": "User already a member of the team."})
+    
+    user = user_col.find_one({"userUid": userUid})
+    if not user:
+        raise HTTPException(status_code=404, detail={"message": "User not found."})
+    
+    if user.get("teamUid"):
+        raise HTTPException(status_code=400, detail={"message": "User already belongs to a team."})
+    
+    if coin > user.get("coin", 0):
+        raise HTTPException(status_code=400, detail={"message": "Insufficient coins to join the team."})
+    
+    # 팀 멤버로 추가 & 팀 베팅 코인 증가
+    team_col.update_one(
+        {"teamUid": teamUid},
+        {"$addToSet": {"teammates": {"userUid": userUid, "coin": coin}}, "$inc": {"bet_coins": coin}}
     )
-
-    return TeamMemberDto(
-        team_id=str(doc["team_id"]),
-        userUid=doc["userUid"],
-        role=doc["role"],
-        joined_at=doc["joined_at"],
+    
+    # 유저 코인 감소 & 팀 정보 업데이트
+    user_col.update_one(
+        {"userUid": userUid},
+        {"$inc": {"coin": -coin}, "$set": {"teamUid": teamUid}}
     )
-
-def get_team(team_id: str) -> TeamDto:
-    tid = _to_oid(team_id)  
-    team = team_col.find_one({"_id": tid})
+    
+    return JSONResponse(status_code=200, content={"message": "Successfully joined team"})
+    
+def getTeamInfo(teamUid: str):
+    team = team_col.find_one({"teamUid": teamUid})
+    team = clean_doc(team)
     if not team:
-        raise HTTPException(status_code=404, detail={"code":"TEAM_NOT_FOUND","message":"팀이 존재하지 않습니다."})
-    return TeamDto(
-        id=str(team["_id"]),
-        name=team.get("name"),
-        owner_id=team["owner_id"],
-        challenge_start_at=team.get("challenge_start_at"),
-        challenge_end_at=team.get("challenge_end_at"),
-        created_at=team["created_at"],
-    )
+        raise HTTPException(status_code=404, detail={"message": "Team not found."})
 
-def list_members(team_id: str, limit: int = 20, cursor: Optional[str] = None) -> MembersResponse:
-    tid = _to_oid(team_id)
-    query = {"team_id": tid}
-    if cursor:
-        query["_id"] = {"$gt": ObjectId(cursor)}
-    docs: List[dict] = list(team_members_col.find(query).sort("_id", 1).limit(limit))
-    members = [
-        TeamMemberDto(team_id=str(d["team_id"]), userUid=d["userUid"], role=d["role"], joined_at=d["joined_at"])
-        for d in docs
-    ]
-    next_cursor = str(docs[-1]["_id"]) if len(docs) == limit else None
-    return MembersResponse(members=members, next_cursor=next_cursor)
+    team = clean_doc(team) or {}
+    # datetime/ObjectId 등 안전하게 직렬화
+    team_serializable = jsonable_encoder(team)
+    return JSONResponse(status_code=200, content={"message": "Get team info success", "team": team_serializable})
 
-def join_team_with_members(team_id: str, userUid: str) -> JoinResponse:
-
-    member = join_team(team_id, userUid)
-
-    members_resp = list_members(team_id, limit=200)
-    return JoinResponse(member=member, members=members_resp.members)
-
-def get_team_with_members(team_id: str) -> TeamWithMembersDto:
-    tid = _to_oid(team_id)
-    team = team_col.find_one({"_id": tid})
+def exitTeam(teamExitDto: TeamExitDto, userUid: str):
+    teamUid = teamExitDto.model_dump().get("teamUid")
+    team = team_col.find_one({"teamUid": teamUid})
     if not team:
-        raise HTTPException(status_code=404, detail={"code":"TEAM_NOT_FOUND","message":"팀이 존재하지 않습니다."})
-    docs: List[dict] = list(team_members_col.find({"team_id": tid}).sort("_id", 1))
-    members = [
-        TeamMemberDto(
-            team_id=str(d["team_id"]),
-            userUid=d["userUid"],
-            role=d["role"],
-            joined_at=d["joined_at"],
-        )
-        for d in docs
-    ]
-
-    return TeamWithMembersDto(
-        id=str(team["_id"]),
-        name=team.get("name"),
-        owner_id=team["owner_id"],
-        challenge_start_at=team.get("challenge_start_at"),
-        challenge_end_at=team.get("challenge_end_at"),
-        created_at=team["created_at"],
-        members=members,
+        raise HTTPException(status_code=404, detail={"message": "Team not found."})
+    
+    if not any(member.get("userUid") == userUid for member in team.get("teammates", [])):
+        raise HTTPException(status_code=400, detail={"message": "User is not a member of the team."})
+    
+    challenge_start_at = team.get("challenge_start_at")
+    if not isinstance(challenge_start_at, datetime):
+        raise HTTPException(status_code=500, detail={"message": "Invalid challenge_start_at in DB."})
+    
+    challenge_start_at_utc = _to_kst(challenge_start_at).astimezone(timezone.utc)
+    if now_utc() >= challenge_start_at_utc:
+        raise HTTPException(status_code=400, detail={"message": "Cannot exit team after challenge has started."})
+    
+    member = next((m for m in team.get("teammates", []) if m.get("userUid") == userUid), None)
+    refund_coins = member.get("coin", 0) if member else 0
+    
+    # 팀 멤버에서 제거
+    team_col.update_one(
+        {"teamUid": teamUid},
+        {
+            "$pull": {"teammates": {"userUid": userUid}},
+            "$inc": {"bet_coins": -refund_coins}
+        }
     )
+    
+    # 유저의 팀 정보 초기화 & 코인 환불
+    user_col.update_one(
+        {"userUid": userUid},
+        {"$inc": {"coin": refund_coins}, "$set": {"teamUid": ""}}
+    )
+    return JSONResponse(status_code=200, content={"message": "Successfully exited the team."})
+    
