@@ -31,6 +31,7 @@ def requestMoney(moneyRequestDto: MoneyRequestDto, userUid: str):
     
     money_col.insert_one({
         "name": user['name'],
+        'account_number': user['account_number'],
         "userUid": userUid,
         "amount": amount,
     })
