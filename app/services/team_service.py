@@ -161,4 +161,88 @@ def exitTeam(teamExitDto: TeamExitDto, userUid: str):
         {"$inc": {"coin": refund_coins}, "$set": {"teamUid": ""}}
     )
     return JSONResponse(status_code=200, content={"message": "Successfully exited the team."})
+
+def disqualifyUserFromTeam(userUid: str):
+    user = user_col.find_one({"userUid": userUid})
+    if not user:
+        raise HTTPException(status_code=404, detail={"message": "User not found."})
     
+    teamUid = user.get("teamUid")
+    team = team_col.find_one({"teamUid": teamUid})
+    if not team:
+        raise HTTPException(status_code=404, detail={"message": "Team not found."})
+
+    # 유저가 팀에 속해있는지 확인
+    member = next((m for m in team.get("teammates", []) if m.get("userUid") == userUid), None)
+    if not member:
+        raise HTTPException(status_code=400, detail={"message": "User is not a member of the team."})
+    
+    # 탈락 시 코인은 돌려주지 않음
+    lost_coins = member.get("coin", 0)
+
+    # 팀에서 멤버 제거, 총 베팅 코인(bet_coins) 감소
+    team_col.update_one(
+        {"teamUid": teamUid},
+        {
+            "$pull": {"teammates": {"userUid": userUid}},
+        }
+    )
+
+    # 유저 팀 정보 초기화 (팀에서 제거됨)
+    user_col.update_one(
+        {"userUid": userUid},
+        {"$set": {"teamUid": ""}}
+    )
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "User has been disqualified and removed from the team.",
+            "lost_coins": lost_coins
+        }
+    )
+
+def distributeWinningsAndDisbandTeam(teamUid: str):
+    # 팀 정보 확인
+    team = team_col.find_one({"teamUid": teamUid})
+    if not team:
+        print(f"[WARN] Team not found: {teamUid}")
+
+    teammates = team.get("teammates", [])
+    total_bet = team.get("bet_coins", 0)
+
+    if not teammates:
+        # 팀원이 아무도 없으면 그냥 삭제
+        team_col.delete_one({"teamUid": teamUid})
+        return JSONResponse(status_code=200, content={"message": "Team deleted (no members remaining)."})
+
+    # 각 멤버의 기여 비율에 따라 코인 배분
+    total_contributed = sum(m.get("coin", 0) for m in teammates)
+    if total_contributed == 0:
+        team_col.delete_one({"teamUid": teamUid})
+        return JSONResponse(status_code=400, content={"message": "Invalid team: no valid coin contributions."})
+
+    results = []
+    for member in teammates:
+        userUid = member.get("userUid")
+        contribution = member.get("coin", 0)
+        ratio = contribution / total_contributed
+        reward = int(total_bet * ratio)  # 비율에 따른 정수 분배
+
+        # 유저 코인에 보상 추가, 팀 정보 초기화
+        user_col.update_one(
+            {"userUid": userUid},
+            {"$inc": {"coin": reward}, "$set": {"teamUid": ""}}
+        )
+        results.append({"userUid": userUid, "reward": reward})
+
+    # 팀 문서 삭제
+    team_col.delete_one({"teamUid": teamUid})
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "Winnings distributed and team disbanded.",
+            "distributed": results
+        }
+    )
