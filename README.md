@@ -1,14 +1,16 @@
 # BedBet-BE
 2025 IST-TECH IT ARENA Hackathon BE
 
+
 ## API 명세서
 모든 Endpoint 앞에
 https://bedbet.knpu.re.kr/api/
 Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 
+
 ## Auth
 
-1. 로그인
+로그인
 
 **`POST` auth/signin**
 
@@ -54,7 +56,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 토큰으로 로그인
+토큰으로 로그인
 
 **`POST` auth/signin/token**
 
@@ -82,7 +84,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 회원가입
+회원가입
 
 **`POST` auth/signup**
 
@@ -115,7 +117,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 이메일 인증 요청
+이메일 인증 요청
 
 **`POST` auth/verify/request**
 
@@ -135,7 +137,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 이메일 코드 인증
+이메일 코드 인증
 
 **`POST` auth/verify/email**
 
@@ -174,7 +176,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 
 ### Coin
 
-1. 코인 요청하기
+코인 요청하기
 
 `post` coin/request
 
@@ -210,7 +212,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 코인 요청 취소하기
+코인 요청 취소하기
 
 `delete` coin/request/cancel
 
@@ -232,7 +234,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 
 ### Money
 
-1. 출금 요청하기
+출금 요청하기
 
 `post` coin/request
 
@@ -276,7 +278,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 출금 요청 취소하기
+출금 요청 취소하기
 
 `delete` coin/request/cancel
 
@@ -298,7 +300,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 
 ## Team
 
-1. 팀 목록 불러오기
+팀 목록 불러오기
 
 `post` team/list
 
@@ -343,7 +345,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 팀 만들기
+팀 만들기
 
 `post` team/create
 
@@ -438,7 +440,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 팀 가입하기
+팀 가입하기
 
 `post` team/join
 
@@ -510,7 +512,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 팀 나가기
+팀 나가기
 
 `post` team/exit
 
@@ -570,7 +572,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 팀 정보 조회
+팀 정보 조회
 
 `get` team/info/{teamUid}
 
@@ -605,7 +607,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 유저 팀 탈락 처리
+유저 팀 탈락 처리
 
 `get` team/disqualify
 
@@ -650,7 +652,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 
 ### User
 
-1. 사용자 정보 조회
+사용자 정보 조회
 
 `get` user/info
 
@@ -679,7 +681,7 @@ Auth API 제외 API Request에 Bearer token `access_token` 설정 필요
 }
 ```
 
-1. 사용자 탈퇴
+사용자 탈퇴
 
 `delete` /
 
