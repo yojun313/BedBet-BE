@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Request
 from app.routes import api_router
+from app.db import team_col
+from app.services.team_service import distributeWinningsAndDisbandTeam  # 기존 함수 import
 import gc
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from rich.console import Console
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 console = Console()
 
@@ -13,6 +16,27 @@ async def periodic_gc(interval_seconds: int = 60):
     while True:
         await asyncio.sleep(interval_seconds)
         gc.collect()
+
+async def periodic_team_cleanup(interval_seconds: int = 60):
+    """challenge_end_at이 지난 팀 자동 정산 및 삭제"""
+    while True:
+        await asyncio.sleep(interval_seconds)
+        now = datetime.now(timezone.utc)
+        expired_teams = list(team_col.find({"challenge_end_at": {"$lte": now}}))
+
+        if not expired_teams:
+            continue
+
+        console.print(f"[bold yellow]{len(expired_teams)}[/bold yellow] team(s) found for auto distribution.")
+        for team in expired_teams:
+            teamUid = team.get("teamUid")
+            try:
+                console.print(f"[cyan]→ Processing team {teamUid}[/cyan]")
+                distributeWinningsAndDisbandTeam(teamUid)
+                console.print(f"[green]✔ Team {teamUid} distributed and deleted.[/green]")
+            except Exception as e:
+                console.print(f"[red]✖ Error processing team {teamUid}: {e}[/red]")
+
 
 # 요청 로그 미들웨어 (텍스트 출력)
 class RichLoggerMiddleware(BaseHTTPMiddleware):
@@ -49,10 +73,18 @@ class RichLoggerMiddleware(BaseHTTPMiddleware):
 # FastAPI 앱 구성
 app = FastAPI()
 app.add_middleware(RichLoggerMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=".*", 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def start_background_tasks():
     asyncio.create_task(periodic_gc(60))
+    asyncio.create_task(periodic_team_cleanup(60))
 
 @app.on_event("shutdown")
 async def stop_background_tasks():

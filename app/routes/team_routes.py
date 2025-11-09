@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.libs.jwt import verify_token
 from app.models.team_model import TeamCreateDto, TeamJoinDto, TeamExitDto
-from app.services.team_service import createTeam, joinTeam, exitTeam, getTeamInfo, getTeams
+from app.services.team_service import createTeam, joinTeam, exitTeam, getTeamInfo, getTeams, disqualifyUserFromTeam
 
 router = APIRouter()
 
@@ -25,3 +25,6 @@ async def exit_team(teamExitDto: TeamExitDto, userUid: str = Depends(verify_toke
 async def get_team_info(teamUid: str):
     return getTeamInfo(teamUid)
 
+@router.get("/disqualify")
+async def disqualify_teams(userUid: str = Depends(verify_token)):
+    return disqualifyUserFromTeam(userUid)
